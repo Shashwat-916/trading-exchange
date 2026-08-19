@@ -1,11 +1,16 @@
 {
   "name": "backend",
-  "module": "index.ts",
+  "module": "src/index.ts",
   "type": "module",
   "private": true,
+  "scripts": {
+    "build": "bun build ./src/index.ts --outdir ./dist",
+    "dev": "bun run build && bun --watch ./src/index.ts"
+  },
   "devDependencies": {
     "@types/bun": "latest",
-    "@types/express": "^5.0.6"
+    "@types/express": "^5.0.6",
+    "@repo/db":"*"
   },
   "peerDependencies": {
     "typescript": "^5"
