@@ -3,8 +3,9 @@
   "module": "index.ts",
   "type": "module",
   "private": true,
-  "exports":{
-    "./validations":"./index.ts"
+  "exports": {
+    ".": "./index.ts",
+    "./validations": "./index.ts"
   },
   "devDependencies": {
     "@types/bun": "latest"

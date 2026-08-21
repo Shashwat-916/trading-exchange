@@ -2,6 +2,7 @@
   "name": "@repo/db",
   "module": "index.ts",
   "exports": {
+    ".": "./index.ts",
     "./prisma": "./index.ts"
   },
   "type": "module",

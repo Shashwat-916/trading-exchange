@@ -2,8 +2,9 @@
   "name": "@repo/config",
   "module": "index.ts",
   "type": "module",
-  "exports":{
-    "./config":"./index.ts"
+  "exports": {
+    ".": "./index.ts",
+    "./config": "./index.ts"
   },
   "private": true,
   "devDependencies": {
