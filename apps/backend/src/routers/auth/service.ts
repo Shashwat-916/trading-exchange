@@ -7,6 +7,12 @@ if (!SMTP_HOST || !SMTP_USER || !SMTP_PASS || !SMTP_PORT) {
 }
 
 
+/**
+ * 1st create transport to sendEmail nodemailer.CreateTransport {} 
+ * 2nd verfiy it for connection  
+ * 3rd then using that createTransport sendEmail service create 
+ */
+
 export const transporter = nodemailer.createTransport({
     host: SMTP_HOST,
     port: Number(SMTP_PORT),
