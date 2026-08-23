@@ -57,9 +57,9 @@ export class Auth_Respository {
         return
     }
 
-    static async GetOtpFromRedis(email:string){
+    static async GetOtpFromRedis(email: string) {
         const storedOtp = await redis.get(`otp:${email}`)
-        return Number(storedOtp)
+        return storedOtp
     }
 
     static async createVerifiedUser(email:string){

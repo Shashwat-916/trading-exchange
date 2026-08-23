@@ -3,15 +3,15 @@ import { EmailValidationsSchema, VerifyEmailValidationSchema } from '@repo/valid
 import { AppError } from '../../utils/erros'
 import { Auth_Respository } from './respository'
 import { GenerateOtp } from './helper'
-import { redis } from 'bun'
+
 
 export class Auth_Controller {
 
     static async SignUpController(req: Request, res: Response) {
 
-        const { data, success } = EmailValidationsSchema.safeParse(req.body)
+        const { data, success, error } = EmailValidationsSchema.safeParse(req.body)
         if (!success) {
-            throw new AppError("Invalid Schema", 400)
+            throw new AppError(`Invalid Schema: ${error?.issues?.map(i => `${i.path.join('.')}: ${i.message}`).join(", ") || "Validation error"}`, 400)
         }
 
         let user = await Auth_Respository.FindUser(data.email)
@@ -33,9 +33,9 @@ export class Auth_Controller {
         const otp = GenerateOtp()
         console.log("GeneratedOtp String", otp)
 
-        //set otp to the redis
-        await Auth_Respository.SetEmailQueue(`otp:${user.id}`, otp)
-        console.log("key", `otp:${user.id}`, "otp", otp)
+        //set otp to redis
+        await Auth_Respository.SetEmailQueue(`otp:${user.email}`, otp)
+        console.log("key", `otp:${user.email}`, "otp", otp)
 
         //push job to the queue to send email that will eventually be picked by the workers
         await Auth_Respository.PushJobToQueue(user.email, "Verification mail", "OTP", otp)
@@ -52,23 +52,23 @@ export class Auth_Controller {
 
     static async VerifyEmailController(req: Request, res: Response) {
 
-        const { data, success } = VerifyEmailValidationSchema.safeParse(req.body)
+        const { data, success, error } = VerifyEmailValidationSchema.safeParse(req.body)
         if (!success) {
-            throw new AppError("Invalid Schema", 400)
+            throw new AppError(`Invalid Schema: ${error?.issues?.map(i => `${i.path.join('.')}: ${i.message}`).join(", ") || "Validation error"}`, 400)
         }
 
-        const storedOtp = Auth_Respository.GetOtpFromRedis(data.email)
-        if(!storedOtp){
-            throw new AppError("OTP has expired or doesnt Exists",400)
+        const storedOtp = await Auth_Respository.GetOtpFromRedis(data.email)
+        if (!storedOtp) {
+            throw new AppError("OTP has expired or doesnt Exists", 400)
         }
-        console.log("Type of data.otp in verification Schema ",typeof(data.otp))
+        console.log("Type of data.otp in verification Schema", typeof (data.otp))
 
-        if(storedOtp !== Number(data.otp) as unknown){
-            throw new AppError("Invalid OTP",400)
+        if (storedOtp !== data.otp) {
+            throw new AppError("Invalid OTP", 400)
         }
 
         const user = await Auth_Respository.createVerifiedUser(data.email)
-        const key = `otp:${user.id} `
+        const key = `otp:${data.email}`
         await Auth_Respository.DeleteKeyInRedis(key)
         
 
@@ -87,7 +87,7 @@ export class Auth_Controller {
     }
 
     static async ResendOtpController(req: Request, res: Response) {
-
+         const
     }
 
     static async MeController(req: Request, res: Response) {
