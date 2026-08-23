@@ -1,8 +1,9 @@
 import type { Request, Response } from 'express'
-import { EmailValidationsSchema, VerifyEmailValidationSchema } from '@repo/validations'
+import { EmailValidationsSchema, ResendOtpSchema, VerifyEmailValidationSchema } from '@repo/validations'
 import { AppError } from '../../utils/erros'
 import { Auth_Respository } from './respository'
 import { GenerateOtp } from './helper'
+import type { JwtPayload } from 'jsonwebtoken'
 
 
 export class Auth_Controller {
@@ -87,10 +88,51 @@ export class Auth_Controller {
     }
 
     static async ResendOtpController(req: Request, res: Response) {
-         const
+
+        const { data , success } = ResendOtpSchema.safeParse(req.body)
+        if(!success){
+            throw new AppError("Invalid Schema",400)
+        }
+        
+        let user = await Auth_Respository.FindUser(data.email)
+        if(!user){
+            throw new AppError("User not found or not verified",404)
+        }
+
+        if(user.verified){
+            return res.status(200).json({
+                success:true,
+                messsage:"User already verified"       
+            })
+        }
+
+        const otp = GenerateOtp()
+        await Auth_Respository.SetEmailQueue(`otp:${user.email}`, otp)
+        await Auth_Respository.PushJobToQueue(user.email, "Verification mail", "OTP", otp)
+        
+         return res.status(200).json({
+            message:"OTP Resend Successfully",
+            success:true
+        })
+
     }
 
     static async MeController(req: Request, res: Response) {
-
+        
+        
+        const user = await Auth_Respository.FindUser(req.user?.email as string)
+        if(!user){
+            return res.status(404).json({
+                success:false,
+                message:"User not found"
+            })
+        }
+        return res.status(200).json({
+            success:true,
+            data:{
+                email:user.email,
+                id:user.id
+            }
+        })
     }
 }
