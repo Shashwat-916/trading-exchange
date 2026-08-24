@@ -8,6 +8,7 @@ import { BrandLogo } from "@/components/BrandLogo";
 import { RotateCw, ArrowLeft, Loader2, AlertCircle, CheckCircle2 } from "lucide-react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { AuthService } from "@/service/auth";
+import { VerifyEmailValidationSchema, ResendOtpSchema } from "@repo/validations";
 
 export default function SendOTP() {
     const router = useRouter();
@@ -20,7 +21,7 @@ export default function SendOTP() {
     const [isResending, setIsResending] = useState<boolean>(false);
     const [error, setError] = useState<string | null>(null);
     const [successMsg, setSuccessMsg] = useState<string | null>(null);
-    const [timer, setTimer] = useState<number>(60); // 60 seconds cooldown for resend
+    const [timer, setTimer] = useState<number>(60); 
 
     // Auto-redirect if user is already verified / logged in
     useEffect(() => {
@@ -47,11 +48,6 @@ export default function SendOTP() {
         const emailFromParam = searchParams?.get("email");
         if (emailFromParam) {
             setEmail(emailFromParam);
-        } else if (typeof window !== "undefined") {
-            const storedEmail = sessionStorage.getItem("user_email");
-            if (storedEmail) {
-                setEmail(storedEmail);
-            }
         }
     }, [searchParams]);
 
@@ -75,13 +71,20 @@ export default function SendOTP() {
         setError(null);
         setSuccessMsg(null);
 
-        if (!otp || otp.trim().length !== 6) {
-            setError("Please enter the complete 6-digit verification code.");
-            return;
-        }
+        const validation = VerifyEmailValidationSchema.safeParse({
+            email,
+            otp: otp.trim(),
+        });
 
-        if (!email) {
-            setError("Email address missing. Please go back and re-enter your email.");
+        if (!validation.success) {
+            const issue = validation.error.issues[0];
+            let msg = issue?.message || "Invalid verification details.";
+            if (!otp || otp.trim().length !== 6) {
+                msg = "Please enter the complete 6-digit verification code.";
+            } else if (!email) {
+                msg = "Email address missing. Please go back and re-enter your email.";
+            }
+            setError(msg);
             return;
         }
 
@@ -91,15 +94,11 @@ export default function SendOTP() {
             const res = await AuthService.verifyOtp(email, otp.trim());
             if (res.token) {
                 localStorage.setItem("auth_token", res.token);
-                localStorage.removeItem("temp_auth_token");
-                if (typeof window !== "undefined") {
-                    window.dispatchEvent(new Event("auth_state_change"));
-                }
             }
             setSuccessMsg("Email verified successfully! Redirecting...");
             setTimeout(() => {
                 router.push("/");
-            }, 1200);
+            }, 300);
         } catch (err: any) {
             const msg =
                 err?.response?.data?.message ||
@@ -113,8 +112,17 @@ export default function SendOTP() {
 
     const handleResend = async () => {
         if (isResending || timer > 0) return;
-        if (!email) {
-            setError("Email address missing. Please go back to enter your email.");
+        
+        setError(null);
+        setSuccessMsg(null);
+
+        const validation = ResendOtpSchema.safeParse({ email });
+        if (!validation.success) {
+            const issue = validation.error.issues[0];
+            const msg = !email 
+                ? "Email address missing. Please go back to enter your email." 
+                : (issue?.message || "Invalid email address.");
+            setError(msg);
             return;
         }
 

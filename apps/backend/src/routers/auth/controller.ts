@@ -3,7 +3,6 @@ import { EmailValidationsSchema, ResendOtpSchema, VerifyEmailValidationSchema } 
 import { AppError } from '../../utils/erros'
 import { Auth_Respository } from './respository'
 import { GenerateOtp } from './helper'
-import type { JwtPayload } from 'jsonwebtoken'
 
 
 export class Auth_Controller {
@@ -20,6 +19,8 @@ export class Auth_Controller {
         if (user && user?.verified) {
             const token = Auth_Respository.Generate_Jwt_Token(user.id, user.email)
             return res.status(200).json({
+                success: true,
+                isExistingUser: true,
                 message: "User ALready Exists! Logged in Successfully",
                 token: token
             })
@@ -30,23 +31,22 @@ export class Auth_Controller {
         }
 
 
-        //genrate otp
+       
         const otp = GenerateOtp()
         console.log("GeneratedOtp String", otp)
 
-        //set otp to redis
+       
         await Auth_Respository.SetEmailQueue(`otp:${user.email}`, otp)
         console.log("key", `otp:${user.email}`, "otp", otp)
 
-        //push job to the queue to send email that will eventually be picked by the workers
+        
         await Auth_Respository.PushJobToQueue(user.email, "Verification mail", "OTP", otp)
 
 
-        const token = Auth_Respository.Generate_Jwt_Token(user.id, user.email)
         return res.status(200).json({
             success: true,
-            message: "OTP Sent to your Email Address",
-            token: token
+            isExistingUser: false,
+            message: "OTP Sent to your Email Address"
         })
 
     }
@@ -120,18 +120,19 @@ export class Auth_Controller {
     static async MeController(req: Request, res: Response) {
         
         
-        const user = await Auth_Respository.FindUser(req.user?.email as string)
-        if(!user){
-            return res.status(404).json({
+        const user = Auth_Respository.FindUser(req.user?.email as string)
+        const foundUser = await user;
+        if(!foundUser || !foundUser.verified){
+            return res.status(401).json({
                 success:false,
-                message:"User not found"
+                message:"User not found or not verified"
             })
         }
         return res.status(200).json({
             success:true,
             data:{
-                email:user.email,
-                id:user.id
+                email:foundUser.email,
+                id:foundUser.id
             }
         })
     }

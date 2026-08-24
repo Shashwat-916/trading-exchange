@@ -16,7 +16,7 @@ export default function NavBar() {
     const dropdownRef = useRef<HTMLDivElement>(null);
 
     const checkAuth = useCallback(() => {
-        const token = typeof window !== "undefined" ? localStorage.getItem("auth_token") : null;
+        const token = localStorage.getItem("auth_token");
         if (token) {
             AuthService.getMe(token)
                 .then((res) => {
@@ -40,13 +40,11 @@ export default function NavBar() {
         checkAuth();
     }, [pathname, checkAuth]);
 
-    // Listen to storage & custom auth change events
+    // Sync across browser tabs
     useEffect(() => {
         window.addEventListener("storage", checkAuth);
-        window.addEventListener("auth_state_change", checkAuth);
         return () => {
             window.removeEventListener("storage", checkAuth);
-            window.removeEventListener("auth_state_change", checkAuth);
         };
     }, [checkAuth]);
 
@@ -65,9 +63,6 @@ export default function NavBar() {
         setDropdownOpen(false);
         localStorage.removeItem("auth_token");
         setUser(null);
-        if (typeof window !== "undefined") {
-            window.dispatchEvent(new Event("auth_state_change"));
-        }
         router.push("/");
     };
 

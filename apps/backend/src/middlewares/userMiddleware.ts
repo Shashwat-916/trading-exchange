@@ -1,6 +1,7 @@
 import type { Request, Response, NextFunction } from 'express'
 import jwt, { type JwtPayload } from 'jsonwebtoken'
 import { JWT_SECRET } from '@repo/config'
+import { Auth_Respository } from '../routers/auth/respository'
 
 declare global {
     namespace Express {
@@ -13,7 +14,7 @@ declare global {
     }
 }
 
-export const userMiddleware = (req: Request, res: Response, next: NextFunction) => {
+export const userMiddleware = async (req: Request, res: Response, next: NextFunction) => {
     const authHeader = req.headers.authorization;
 
     if (!authHeader) {
@@ -48,9 +49,17 @@ export const userMiddleware = (req: Request, res: Response, next: NextFunction) 
             })
         }
 
+        const user = await Auth_Respository.FindUser(decoded.email)
+        if (!user || !user.verified) {
+            return res.status(401).json({
+                message: "User account is not verified",
+                success: false
+            })
+        }
+
         req.user = {
-            id: decoded.id,
-            email: decoded.email
+            id: user.id,
+            email: user.email
         }
 
         next()

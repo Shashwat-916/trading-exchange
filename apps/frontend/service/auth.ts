@@ -1,7 +1,6 @@
 import axios from "axios";
+import { EmailValidationsSchema, VerifyEmailValidationSchema, ResendOtpSchema } from "@repo/validations";
 
-// Default to relative '/api/v1/auth' to use Next.js rewrites proxying to http://localhost:3001/api/v1/auth.
-// This prevents cross-origin CORS / Network Errors when calling backend from browser.
 const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || "/api/v1/auth";
 
 const api = axios.create({
@@ -15,6 +14,7 @@ export interface AuthResponse {
     success: boolean;
     message: string;
     token?: string;
+    isExistingUser?: boolean;
     data?: {
         email: string;
         id: string;
@@ -26,6 +26,10 @@ export class AuthService {
      * Trigger OTP generation by signing up with email address.
      */
     static async signup(email: string): Promise<AuthResponse> {
+        const validation = EmailValidationsSchema.safeParse({ email });
+        if (!validation.success) {
+            throw new Error(validation.error.issues[0]?.message || "Invalid email address");
+        }
         const response = await api.post<AuthResponse>("/signup", { email });
         return response.data;
     }
@@ -34,6 +38,10 @@ export class AuthService {
      * Verify 6-digit verification code.
      */
     static async verifyOtp(email: string, otp: string): Promise<AuthResponse> {
+        const validation = VerifyEmailValidationSchema.safeParse({ email, otp });
+        if (!validation.success) {
+            throw new Error(validation.error.issues[0]?.message || "Invalid verification payload");
+        }
         const response = await api.post<AuthResponse>("/verify-otp", { email, otp });
         return response.data;
     }
@@ -42,6 +50,10 @@ export class AuthService {
      * Resend OTP verification code to user's email.
      */
     static async resendOtp(email: string): Promise<AuthResponse> {
+        const validation = ResendOtpSchema.safeParse({ email });
+        if (!validation.success) {
+            throw new Error(validation.error.issues[0]?.message || "Invalid email address");
+        }
         const response = await api.post<AuthResponse>("/resend-otp", { email });
         return response.data;
     }
@@ -59,5 +71,5 @@ export class AuthService {
     }
 }
 
-// Backward compatibility alias for any legacy usage
+
 export const authService = AuthService;

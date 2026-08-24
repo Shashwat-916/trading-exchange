@@ -8,6 +8,7 @@ import { BrandLogo } from "@/components/BrandLogo";
 import { useRouter } from "next/navigation";
 import { AuthService } from "@/service/auth";
 import { Loader2, AlertCircle } from "lucide-react";
+import { EmailValidationsSchema } from "@repo/validations";
 
 export default function CreateAccount() {
     const router = useRouter();
@@ -16,7 +17,7 @@ export default function CreateAccount() {
     const [checkingSession, setCheckingSession] = useState(true);
     const [error, setError] = useState<string | null>(null);
 
-    // Auto-redirect if user is already logged in
+    
     useEffect(() => {
         const token = localStorage.getItem("auth_token");
         if (token) {
@@ -37,23 +38,18 @@ export default function CreateAccount() {
         }
     }, [router]);
 
-    const validateEmail = (emailStr: string) => {
-        const regex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-        return regex.test(emailStr.trim());
-    };
-
     const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
         setError(null);
 
         const trimmedEmail = email.trim();
-        if (!trimmedEmail) {
-            setError("Please enter your email address.");
-            return;
-        }
-
-        if (!validateEmail(trimmedEmail)) {
-            setError("Please enter a valid email address.");
+        const validation = EmailValidationsSchema.safeParse({ email: trimmedEmail });
+        if (!validation.success) {
+            const issue = validation.error.issues[0];
+            const msg = !trimmedEmail 
+                ? "Please enter your email address." 
+                : (issue?.message === "Invalid email" ? "Please enter a valid email address." : issue?.message || "Please enter a valid email address.");
+            setError(msg);
             return;
         }
 
@@ -61,26 +57,14 @@ export default function CreateAccount() {
 
         try {
             const res = await AuthService.signup(trimmedEmail);
-            const msg = (res.message || "").toLowerCase();
 
-            // If user is already verified/exists, backend returns logged in response directly
-            if (msg.includes("already exists") || msg.includes("logged in")) {
-                if (res.token) {
-                    localStorage.setItem("auth_token", res.token);
-                    if (typeof window !== "undefined") {
-                        window.dispatchEvent(new Event("auth_state_change"));
-                    }
-                }
+            // If user is already verified/exists, backend returns logged in response directly with isExistingUser: true
+            if (res.isExistingUser && res.token) {
+                localStorage.setItem("auth_token", res.token);
                 router.push("/");
                 return;
             }
 
-            if (res.token) {
-                localStorage.setItem("temp_auth_token", res.token);
-            }
-            if (typeof window !== "undefined") {
-                sessionStorage.setItem("user_email", trimmedEmail);
-            }
             router.push(`/send-otp?email=${encodeURIComponent(trimmedEmail)}`);
         } catch (err: any) {
             const msg =
